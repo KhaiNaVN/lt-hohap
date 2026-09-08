@@ -45,7 +45,42 @@ $('#examSelect').onchange=updateExamInfo;
 function startQuiz(){selectedExam=+$('#examSelect').value||0;const e=EXAMS[selectedExam];questions=e.questions.map(q=>({...q,options:q.options.map(o=>({...o}))}));if($('#shuffleQ').checked)questions=shuffleArray(questions);if($('#shuffleA').checked)questions.forEach(q=>q.options=shuffleArray(q.options));answers={};idx=0;submitted=false;seconds=Math.max(5,Math.min(300,+$('#minutes').value||40))*60;initialSeconds=seconds;$('#start').classList.add('hidden');$('#result').classList.add('hidden');$('#quiz').classList.remove('hidden');$('#timer').classList.remove('hidden');$('#examName').textContent=e.name;buildNav();render();tick();clearInterval(ticker);ticker=setInterval(()=>{seconds--;tick();if(seconds<=0){clearInterval(ticker);finish(true)}},1000)}
 function tick(){const m=Math.floor(Math.max(0,seconds)/60),s=Math.max(0,seconds)%60;$('#timer').textContent=`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;}
 function buildNav(){const g=$('#qgrid');g.innerHTML='';questions.forEach((q,i)=>{const b=document.createElement('button');b.className='qnav';b.textContent=i+1;b.onclick=()=>{idx=i;render()};g.appendChild(b)})}
-function render(){const q=questions[idx],chosen=answers[idx],answered=chosen!=null;$('#question').textContent=`Câu ${idx+1}. ${q.question}`;$('#origNum').textContent=`Câu gốc: ${q.number}`;const box=$('#options');box.innerHTML='';q.options.forEach((o,pos)=>{const disp=String.fromCharCode(65+pos);const b=document.createElement('button');let cls='opt';if(answered&&q.answer){if(o.label===q.answer)cls+=' correct';else if(o.label===chosen)cls+=' wrong'}b.className=cls;b.disabled=answered;b.innerHTML=`<span class="badge">${disp}</span><span>${esc(o.text)}</span>`;b.onclick=()=>{if(answers[idx]!=null)return;answers[idx]=o.label;render();updateProgress()};box.appendChild(b)});const fb=$('#feedback');if(answered){if(!q.answer){fb.className='feedback warn';fb.innerHTML='⚠️ <b>Tài liệu nguồn chưa đánh dấu đáp án cho câu này.</b> Câu này không tính điểm.'}else{const right=q.options.find(o=>o.label===q.answer),pos=q.options.findIndex(o=>o.label===q.answer),disp=String.fromCharCode(65+pos),ok=chosen===q.answer;fb.className='feedback '+(ok?'ok':'bad');fb.innerHTML=(ok?'✅ <b>Chính xác.</b>':'❌ <b>Chưa đúng.</b>')+` Đáp án đúng: <b>${disp}. ${esc(right?.text||'')}</b>`+(q.explanation?`<div class="explain">${esc(q.explanation)}</div>`:'')}else{fb.className='feedback hidden';fb.innerHTML=''}$('#prev').disabled=idx===0;$('#next').textContent=idx===questions.length-1?'Xem lại →':'Câu tiếp →';updateProgress();document.querySelectorAll('.qnav').forEach((b,i)=>b.classList.toggle('current',i===idx))}
+function render(){
+  const q=questions[idx],chosen=answers[idx],answered=chosen!=null;
+  $('#question').textContent=`Câu ${idx+1}. ${q.question}`;
+  $('#origNum').textContent=`Câu gốc: ${q.number}`;
+  const box=$('#options'); box.innerHTML='';
+  q.options.forEach((o,pos)=>{
+    const disp=String.fromCharCode(65+pos);
+    const b=document.createElement('button');
+    let cls='opt';
+    if(answered&&q.answer){
+      if(o.label===q.answer) cls+=' correct';
+      else if(o.label===chosen) cls+=' wrong';
+    }
+    b.className=cls; b.disabled=answered;
+    b.innerHTML=`<span class="badge">${disp}</span><span>${esc(o.text)}</span>`;
+    b.onclick=()=>{if(answers[idx]!=null)return; answers[idx]=o.label; render(); updateProgress()};
+    box.appendChild(b);
+  });
+  const fb=$('#feedback');
+  if(answered){
+    if(!q.answer){
+      fb.className='feedback warn';
+      fb.innerHTML='⚠️ <b>Tài liệu nguồn chưa đánh dấu đáp án cho câu này.</b> Câu này không tính điểm.';
+    }else{
+      const right=q.options.find(o=>o.label===q.answer),pos=q.options.findIndex(o=>o.label===q.answer),disp=String.fromCharCode(65+pos),ok=chosen===q.answer;
+      fb.className='feedback '+(ok?'ok':'bad');
+      fb.innerHTML=(ok?'✅ <b>Chính xác.</b>':'❌ <b>Chưa đúng.</b>')+` Đáp án đúng: <b>${disp}. ${esc(right?.text||'')}</b>`+(q.explanation?`<div class="explain">${esc(q.explanation)}</div>`:'');
+    }
+  }else{
+    fb.className='feedback hidden'; fb.innerHTML='';
+  }
+  $('#prev').disabled=idx===0;
+  $('#next').textContent=idx===questions.length-1?'Xem lại →':'Câu tiếp →';
+  updateProgress();
+  document.querySelectorAll('.qnav').forEach((b,i)=>b.classList.toggle('current',i===idx));
+}
 function updateProgress(){const n=Object.keys(answers).length,p=questions.length?Math.round(n/questions.length*100):0;$('#answeredTxt').textContent=`${n}/${questions.length} đã làm`;$('#pctTxt').textContent=p+'%';$('#bar').style.width=p+'%';document.querySelectorAll('.qnav').forEach((b,i)=>{const answered=answers[i]!=null,q=questions[i];b.classList.toggle('right',answered&&q.answer&&answers[i]===q.answer);b.classList.toggle('wrongnav',answered&&q.answer&&answers[i]!==q.answer);b.classList.toggle('ungraded',answered&&!q.answer)})}
 $('#startBtn').onclick=startQuiz;$('#prev').onclick=()=>{if(idx>0){idx--;render()}};$('#next').onclick=()=>{if(idx<questions.length-1){idx++;render()}else document.querySelector('.side').scrollIntoView({behavior:'smooth'})};$('#submit').onclick=()=>finish(false);
 function finish(auto){if(submitted)return;submitted=true;clearInterval(ticker);let correct=0,wrong=0,ungraded=0,graded=0;questions.forEach((q,i)=>{if(!q.answer){ungraded++;return}graded++;if(answers[i]===q.answer)correct++;else wrong++});$('#quiz').classList.add('hidden');$('#timer').classList.add('hidden');$('#result').classList.remove('hidden');$('#resultExam').textContent=EXAMS[selectedExam].name+(auto?' · Hết giờ, tự nộp':'');$('#score').textContent=`${correct}/${graded}`;const pct=graded?Math.round(correct/graded*100):0;$('#grade').textContent=graded?`${pct}% trên các câu có đáp án nguồn`:'Không có đủ đáp án nguồn để chấm điểm đề này.';$('#correctN').textContent=correct;$('#wrongN').textContent=wrong;$('#ungradedN').textContent=ungraded;renderReview();window.scrollTo({top:0,behavior:'smooth'})}
